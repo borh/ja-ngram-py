@@ -34,13 +34,13 @@ def run_mecab(fn, cleaned_fn, mecab_fn):
     sentences = [sentence for sentence in chain.from_iterable(split_sentence_ja(line) for line in lines)
                  if sentence]
 
-    print([sentence for sentence in sentences if len(sentence) > 400])
+    # print([sentence for sentence in sentences if len(sentence) > 400])
 
     with open(cleaned_fn, 'w') as f:
         f.write('\n'.join(sentences))
 
     output = subprocess.check_output(
-        ['mecab', '-Ochamame', '-b' + str(2**28)],
+        ['mecab', '-Ochamame', '-b' + str(2**32)],
         input=bytes('\n'.join(sentences), encoding='utf-8'),
     )
 
@@ -54,11 +54,9 @@ def collapse_features(n_gram, fields, features_sep, n_gram_sep):
     """Concatenates both n-grams and the selected features of the morphemes into one string."""
     try:
         return n_gram_sep.join(features_sep.join(morpheme[field] for field in fields)
-                              for morpheme in n_gram)
+                               for morpheme in n_gram)
     except Exception as e:
-        print(n_gram)
-        print(fields)
-        print(e)
+        print('{} encountered while processing:\nn-gram: {}\nfields: {}'.format(e, n_gram, fields))
 
 
 def n_gram_filter_pos(morphemes, filter_conditions):
@@ -95,7 +93,7 @@ def extract_features(fn):
 def generate_matrix(file_n_grams, min_freq=5, transpose=False):
     """Generates matrix with files representing rows and columns representing extracted n-gram features."""
 
-    file_n_grams = [x for x in file_n_grams] # Don't realize generator? FIXME
+    file_n_grams = [x for x in file_n_grams]  # Don't realize generator? FIXME
 
     unique_n_grams = Counter()
     for _, n_grams in file_n_grams:
@@ -105,7 +103,7 @@ def generate_matrix(file_n_grams, min_freq=5, transpose=False):
 
     m = None
     if transpose:
-        m = [] # TODO
+        m = []  # TODO
     else:
         m = [[fn] + [n_grams[u] for u in unique_n_grams] for fn, n_grams in file_n_grams]
 
@@ -129,8 +127,8 @@ def process_file(fn, features, features_sep, n_gram_sep):
     n_grams = n_gram_generator(morphemes, n=args['n'])
 
     filtered_n_grams = Counter(collapse_features(n_gram, features, features_sep, n_gram_sep)
-                              for n_gram in n_grams
-                              if n_gram_filter_pos(n_gram, filter_conditions=filter_conditions))
+                               for n_gram in n_grams
+                               if n_gram_filter_pos(n_gram, filter_conditions=filter_conditions))
 
     return fn, filtered_n_grams
 
