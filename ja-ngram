@@ -93,9 +93,6 @@ def extract_features(fn):
 def generate_matrix(file_to_n_grams, min_freq=5, relative_freq=True, transpose=False):
     """Generates matrix with files representing rows and columns representing extracted n-gram features."""
 
-    # file_to_n_grams = [x for x in file_to_n_grams]  # Don't realize generator? FIXME
-    print(file_to_n_grams)
-
     unique_n_grams = Counter()
     for _, n_grams in file_to_n_grams.items():
         unique_n_grams += n_grams
@@ -110,8 +107,9 @@ def generate_matrix(file_to_n_grams, min_freq=5, relative_freq=True, transpose=F
 
     header = None
     if transpose:
-        header = ['n_gram'] + [fn for fn, _ in file_to_n_grams]
-        m = [[u] + list(x) for x in zip(*m)]
+        header = ['n_gram'] + [fn for fn, _ in file_to_n_grams.items()]
+        freqs = [list(x) for x in zip(*[z[1:] for z in m])]
+        m = [[u] + f for u, f in zip(unique_n_grams, freqs)]
     else:
         header = ['filename'] + unique_n_grams
 
