@@ -90,29 +90,39 @@ def extract_features(fn):
             yield row
 
 
-def generate_matrix(file_n_grams, min_freq=5, transpose=False):
+def generate_matrix(file_to_n_grams, min_freq=5, relative_freq=True, transpose=False):
     """Generates matrix with files representing rows and columns representing extracted n-gram features."""
 
-    file_n_grams = [x for x in file_n_grams]  # Don't realize generator? FIXME
+    # file_to_n_grams = [x for x in file_to_n_grams]  # Don't realize generator? FIXME
+    print(file_to_n_grams)
 
     unique_n_grams = Counter()
-    for _, n_grams in file_n_grams:
+    for _, n_grams in file_to_n_grams.items():
         unique_n_grams += n_grams
 
     unique_n_grams = [k for k, v in unique_n_grams.items() if v >= min_freq]
 
-    m = None
-    if transpose:
-        m = []  # TODO
-    else:
-        m = [[fn] + [n_grams[u] for u in unique_n_grams] for fn, n_grams in file_n_grams]
+    if relative_freq:
+        file_to_n_grams = {fn: Counter({k: (v / sum(n_grams.values()) * 1e6) for k, v in n_grams.items()})
+                           for fn, n_grams in file_to_n_grams.items()}
 
-    return ['filename'] + unique_n_grams, m
+    m = [[fn] + [n_grams[u] for u in unique_n_grams] for fn, n_grams in file_to_n_grams.items()]
+
+    header = None
+    if transpose:
+        header = ['n_gram'] + [fn for fn, _ in file_to_n_grams]
+        m = [[u] + list(x) for x in zip(*m)]
+    else:
+        header = ['filename'] + unique_n_grams
+
+    return header, m
 
 
 def process_file(fn, features, features_sep, n_gram_sep):
     """Main processing function that sets up parameters and wires all logic needed to generate specified n-gram
     features."""
+    print('Processing \'{}\'...'.format(fn))
+
     filter_conditions = args['positional_pos_filter']
     if filter_conditions:
         filter_conditions = [re.compile(c) for c in filter_conditions]
@@ -155,6 +165,11 @@ def parse_args():
                         default=5,
                         type=int,
                         required=False)
+    parser.add_argument('--relative-freq',
+                        help='specify if frequency counts should be normalized to parts-per-million (default=True)',
+                        action='store_true',
+                        default=False,
+                        required=False)
     parser.add_argument('--positional-pos-filter',
                         nargs='+',
                         help='specify consecutive regular expressions to match to the POS fields of tokens '
@@ -171,8 +186,8 @@ def parse_args():
                         default='/',
                         required=False)
     parser.add_argument('--transpose',
-                        nargs='?',
                         help='specify whether to transpose the output matrix or not (default=False)',
+                        action='store_true',
                         default=False,
                         required=False)
     parser.add_argument('--in',
@@ -188,14 +203,15 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
 
-    processed_files = (process_file(fn,
-                                    args['features'],
-                                    args['features_sep'],
-                                    args['n_gram_sep'])
-                       for fn in args['in'])
+    processed_files = dict(process_file(fn,
+                                        args['features'],
+                                        args['features_sep'],
+                                        args['n_gram_sep'])
+                          for fn in args['in'])
 
     header, output_matrix = generate_matrix(processed_files,
                                             min_freq=args['min_freq'],
+                                            relative_freq=args['relative_freq'],
                                             transpose=args['transpose'])
 
     with open(args['out'], 'w', newline='') as f:
